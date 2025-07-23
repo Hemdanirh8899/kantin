@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Penilaian Kepuasan Kantin 1</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font for better typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+        }
+        .emoticon-btn {
+            transition: all 0.3s ease;
+            border: 3px solid transparent; /* Add a transparent border for selection */
+            border-radius: 1rem; /* Rounded corners */
+        }
+        .emoticon-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); /* Subtle blue shadow on hover */
+        }
+        .emoticon-btn.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.7); /* More prominent blue shadow when selected */
+            border-color: #3b82f6; /* Blue border when selected */
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar for admin question list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-indigo-200 min-h-screen flex items-center justify-center py-12">
+    <!-- Main container for the application -->
+    <div id="appContainer" class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-4xl transform transition-all duration-300 ease-in-out">
+        <!-- User Rating Page -->
+        <div id="userPage" class="fade-in">
+            <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-8">
+                Sistem Penilaian Kepuasan Kantin
+            </h1>
+
+            <!-- Main rating section -->
+            <div class="bg-blue-50 p-6 rounded-xl mb-8 shadow-inner">
+                <h2 class="text-2xl font-bold text-center text-blue-800 mb-6">
+                    Bagaimana pengalaman Anda hari ini?
+                </h2>
+                <div class="flex justify-center space-x-8 mb-8">
+                    <!-- Satisfied Emoticon Button -->
+                    <button class="emoticon-btn p-4 flex flex-col items-center cursor-pointer" data-value="1">
+                        <span class="text-6xl">😊</span>
+                        <span class="text-lg font-medium text-gray-700 mt-2">Puas</span>
+                    </button>
+                    <!-- Unsatisfied Emoticon Button -->
+                    <button class="emoticon-btn p-4 flex flex-col items-center cursor-pointer" data-value="0">
+                        <span class="text-6xl">😞</span>
+                        <span class="text-lg font-medium text-gray-700 mt-2">Tidak Puas</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Questions Section -->
+            <div id="questionsContainer" class="space-y-6 mb-8">
+                <!-- Questions will be loaded here dynamically -->
+            </div>
+
+            <!-- Feedback Section (initially hidden) -->
+            <div id="feedbackSection" class="space-y-4 hidden fade-in">
+                <h2 class="text-xl font-semibold text-gray-700">Kritik dan Saran</h2>
+                <textarea id="feedback" name="feedback" rows="4" class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" placeholder="Berikan kritik dan saran Anda..."></textarea>
+                <div id="feedbackRequired" class="text-red-500 text-sm hidden">Kritik dan saran wajib diisi untuk penilaian tidak puas</div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-center">
+                <button id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition-transform duration-200 hover:scale-105">
+                    Kirim Penilaian
+                </button>
+            </div>
+
+            <!-- Thank You Message (hidden by default) -->
+            <div id="thankYouMessage" class="hidden text-center mt-8 text-green-600 font-semibold text-xl fade-in">
+                Terima kasih atas penilaian Anda!
+            </div>
+            <!-- Error Message (hidden by default) -->
+            <div id="errorMessage" class="hidden text-center mt-8 text-red-600 font-semibold text-xl fade-in">
+                Mohon lengkapi semua pertanyaan dan kritik/saran jika Anda memilih tidak puas.
+            </div>
+        </div>
+
+        <!-- Admin Login Page (hidden by default) -->
+        <div id="loginPage" class="hidden fade-in">
+            <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Admin Login</h1>
+            <div class="space-y-4">
+                <input type="password" id="adminPassword" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Password Admin">
+                <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg">Login</button>
+                <p id="loginError" class="text-red-500 text-center hidden">Password salah!</p>
+            </div>
+            <button onclick="showUserPage()" class="mt-6 text-blue-600 hover:underline text-center w-full">Kembali ke Halaman Penilaian</button>
+        </div>
+
+        <!-- Admin Dashboard Page (hidden by default) -->
+        <div id="adminDashboard" class="hidden fade-in">
+            <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Dashboard Admin</h1>
+
+            <!-- Question Management Section -->
+            <div class="bg-gray-50 p-6 rounded-xl mb-8 shadow-inner">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Manajemen Pertanyaan</h2>
+                <div class="space-y-4 mb-6">
+                    <input type="text" id="newQuestionInput" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Tambahkan pertanyaan baru...">
+                    <button id="addQuestionBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg">Tambah Pertanyaan</button>
+                </div>
+                <div id="questionsAdminList" class="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                    <!-- Dynamic questions for admin will be listed here -->
+                </div>
+            </div>
+
+            <!-- Report Generation Section -->
+            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Laporan Kepuasan</h2>
+                <div class="flex space-x-4 mb-6">
+                    <select id="reportMonth" class="w-1/2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <!-- Months will be populated by JS -->
+                    </select>
+                    <select id="reportYear" class="w-1/2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <!-- Years will be populated by JS -->
+                    </select>
+                </div>
+                <button id="generateReportBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg mb-6">Generate Laporan</button>
+
+                <!-- Report Content Area -->
+                <div id="reportContent" class="bg-white p-4 rounded-lg shadow-md min-h-[200px]">
+                    <p class="text-center text-gray-500">Pilih bulan dan tahun untuk melihat laporan.</p>
+                </div>
+
+                <!-- Export Buttons (hidden by default) -->
+                <div id="exportButtons" class="flex justify-center space-x-4 mt-6 hidden">
+                    <button onclick="exportToPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg shadow-md">Export PDF</button>
+                    <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md">Export Excel</button>
+                </div>
+            </div>
+
+            <button onclick="showUserPage()" class="mt-8 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg w-full">Logout Admin</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for application state
+        let selectedEmotion = null; // Stores the selected emoticon value (1 for Puas, 0 for Tidak Puas)
+        let questions = []; // Array to store dynamic questions
+        let ratings = []; // Array to store all submitted ratings
+        let currentReport = null; // Stores the data for the currently generated report
+        let currentPage = 1; // Current page for feedback pagination
+        const itemsPerPage = 20; // Number of feedback items per page
+
+        // --- Utility Functions ---
+
+        // Function to save data to localStorage
+        function saveData() {
+            localStorage.setItem('questions', JSON.stringify(questions));
+            localStorage.setItem('ratings', JSON.stringify(ratings));
+        }
+
+        // Function to load data from localStorage
+        function loadData() {
+            const storedQuestions = localStorage.getItem('questions');
+            const storedRatings = localStorage.getItem('ratings');
+
+            if (storedQuestions) {
+                questions = JSON.parse(storedQuestions);
+            } else {
+                // Default questions if none are stored
+                questions = [
+                    { id: 'q1', text: 'Kebersihan kantin terjaga dengan baik?' },
+                    { id: 'q2', text: 'Kualitas makanan dan minuman memuaskan?' },
+                    { id: 'q3', text: 'Pelayanan staff kantin ramah dan cepat?' },
+                    { id: 'q4', text: 'Harga makanan dan minuman sesuai?' }
+                ];
+                saveData(); // Save default questions
+            }
+
+            if (storedRatings) {
+                ratings = JSON.parse(storedRatings);
+            }
+        }
+
+        // --- UI Rendering Functions ---
+
+        // Function to display the user rating page
+        function showUserPage() {
+            document.getElementById('userPage').classList.remove('hidden');
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('thankYouMessage').classList.add('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+            document.getElementById('feedbackSection').classList.add('hidden'); // Ensure feedback is hidden initially
+            document.getElementById('feedback').value = ''; // Clear feedback
+            document.getElementById('feedback').removeAttribute('required'); // Remove required attribute
+            document.getElementById('feedbackRequired').classList.add('hidden'); // Hide required message
+
+            // Reset emoticon selection
+            document.querySelectorAll('.emoticon-btn').forEach(btn => {
+                btn.classList.remove('selected', 'border-blue-500');
+            });
+            selectedEmotion = null;
+
+            loadUserQuestions(); // Load questions for the user page
+        }
+
+        // Function to display the admin login page
+        function showLoginPage() {
+            document.getElementById('userPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('adminPassword').value = ''; // Clear password field
+            document.getElementById('loginError').classList.add('hidden'); // Hide error message
+        }
+
+        // Function to display the admin dashboard
+        function showAdminDashboard() {
+            document.getElementById('userPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            loadAdminQuestions(); // Load questions for admin management
+            populateReportFilters(); // Populate month/year dropdowns for reports
+            document.getElementById('reportContent').innerHTML = '<p class="text-center text-gray-500">Pilih bulan dan tahun untuk melihat laporan.</p>';
+            document.getElementById('exportButtons').classList.add('hidden'); // Hide export buttons initially
+            currentReport = null; // Clear current report data
+        }
+
+        // Function to load and display questions on the user page
+        function loadUserQuestions() {
+            const questionsContainer = document.getElementById('questionsContainer');
+            questionsContainer.innerHTML = ''; // Clear previous questions
+
+            questions.forEach(question => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'bg-white p-5 rounded-xl shadow-md fade-in';
+                questionDiv.innerHTML = `
+                    <p class="text-lg font-medium text-gray-800 mb-4">${question.text}</p>
+                    <div class="flex space-x-6 justify-center">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="question-${question.id}" value="1" class="form-radio h-5 w-5 text-green-600" required>
+                            <span class="ml-2 text-gray-700">Ya</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="question-${question.id}" value="0" class="form-radio h-5 w-5 text-red-600" required>
+                            <span class="ml-2 text-gray-700">Tidak</span>
+                        </label>
+                    </div>
+                `;
+                questionsContainer.appendChild(questionDiv);
+            });
+        }
+
+        // Function to load and display questions on the admin dashboard
+        function loadAdminQuestions() {
+            const questionsAdminList = document.getElementById('questionsAdminList');
+            questionsAdminList.innerHTML = ''; // Clear previous questions
+
+            if (questions.length === 0) {
+                questionsAdminList.innerHTML = '<p class="text-center text-gray-500">Belum ada pertanyaan. Tambahkan pertanyaan baru di atas.</p>';
+                return;
+            }
+
+            questions.forEach(question => {
+                const questionItem = document.createElement('div');
+                questionItem.className = 'flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-200';
+                questionItem.innerHTML = `
+                    <span id="questionText-${question.id}" class="text-gray-700 flex-grow mr-4">${question.text}</span>
+                    <input type="text" id="editInput-${question.id}" class="hidden flex-grow mr-4 p-2 border border-blue-300 rounded-md" value="${question.text}">
+                    <div class="space-x-2">
+                        <button onclick="editQuestion('${question.id}')" id="editBtn-${question.id}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-sm">Edit</button>
+                        <button onclick="saveEditedQuestion('${question.id}')" id="saveBtn-${question.id}" class="hidden bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm">Simpan</button>
+                        <button onclick="deleteQuestion('${question.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm">Hapus</button>
+                    </div>
+                `;
+                questionsAdminList.appendChild(questionItem);
+            });
+        }
+
+        // --- Event Handlers ---
+
+        // Setup emoticon click handlers
+        function setupEmoticonHandlers() {
+            document.querySelectorAll('.emoticon-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Remove 'selected' class from all emoticons
+                    document.querySelectorAll('.emoticon-btn').forEach(b => {
+                        b.classList.remove('selected', 'border-blue-500');
+                    });
+
+                    // Add 'selected' class to the clicked emoticon
+                    this.classList.add('selected', 'border-blue-500');
+                    selectedEmotion = parseInt(this.dataset.value); // Parse to integer
+
+                    const feedbackSection = document.getElementById('feedbackSection');
+                    const feedbackTextarea = document.getElementById('feedback');
+                    const feedbackRequired = document.getElementById('feedbackRequired');
+
+                    // Show/hide feedback section based on selection
+                    if (selectedEmotion === 0) { // If "Tidak Puas" is selected
+                        feedbackSection.classList.remove('hidden'); // Show feedback section
+                        feedbackSection.classList.add('fade-in'); // Add fade-in animation
+                        feedbackTextarea.setAttribute('required', 'required'); // Make feedback required
+                        feedbackRequired.classList.remove('hidden'); // Show required message
+                    } else { // If "Puas" is selected
+                        feedbackSection.classList.add('hidden'); // Hide feedback section
+                        feedbackTextarea.removeAttribute('required'); // Remove required attribute
+                        feedbackRequired.classList.add('hidden'); // Hide required message
+                        feedbackTextarea.value = ''; // Clear feedback when switching to satisfied
+                    }
+                });
+            });
+        }
+
+        // Handle form submission for user ratings
+        document.getElementById('submitBtn').addEventListener('click', function() {
+            if (selectedEmotion === null) {
+                document.getElementById('errorMessage').textContent = 'Mohon pilih salah satu emotikon.';
+                document.getElementById('errorMessage').classList.remove('hidden');
+                return;
+            }
+
+            const answers = {};
+            let allQuestionsAnswered = true;
+            questions.forEach(question => {
+                const selectedOption = document.querySelector(`input[name="question-${question.id}"]:checked`);
+                if (selectedOption) {
+                    answers[question.id] = parseInt(selectedOption.value);
+                } else {
+                    allQuestionsAnswered = false;
+                }
+            });
+
+            if (!allQuestionsAnswered) {
+                document.getElementById('errorMessage').textContent = 'Mohon lengkapi semua pertanyaan.';
+                document.getElementById('errorMessage').classList.remove('hidden');
+                return;
+            }
+
+            const feedbackTextarea = document.getElementById('feedback');
+            const feedback = feedbackTextarea.value.trim();
+
+            // If "Tidak Puas" is selected, feedback is required
+            if (selectedEmotion === 0 && feedback === '') {
+                document.getElementById('errorMessage').textContent = 'Kritik dan saran wajib diisi untuk penilaian tidak puas.';
+                document.getElementById('errorMessage').classList.remove('hidden');
+                return;
+            }
+
+            // Hide any previous error messages
+            document.getElementById('errorMessage').classList.add('hidden');
+
+            const now = new Date();
+            const newRating = {
+                id: Date.now().toString(), // Unique ID for the rating
+                emotion: selectedEmotion,
+                answers: answers,
+                feedback: feedback,
+                date: now.toLocaleDateString('id-ID'), // Format date for display
+                month: now.getMonth() + 1, // Month (1-12)
+                year: now.getFullYear()
+            };
+
+            ratings.push(newRating);
+            saveData(); // Save updated ratings to localStorage
+
+            // Show thank you message and reset form
+            document.getElementById('userPage').classList.add('hidden');
+            document.getElementById('thankYouMessage').classList.remove('hidden');
+
+            // Reset form after a short delay
+            setTimeout(() => {
+                showUserPage(); // Go back to user page
+                // Clear selected radio buttons
+                questions.forEach(question => {
+                    document.querySelectorAll(`input[name="question-${question.id}"]`).forEach(radio => radio.checked = false);
+                });
+                feedbackTextarea.value = ''; // Clear feedback textarea
+            }, 2000); // 2 seconds
+        });
+
+        // Handle admin login
+        document.getElementById('loginBtn').addEventListener('click', function() {
+            const password = document.getElementById('adminPassword').value;
+            // Simple password check (for demonstration purposes only, use secure authentication in production)
+            if (password === 'admin123') {
+                showAdminDashboard();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        });
+
+        // Add new question functionality
+        document.getElementById('addQuestionBtn').addEventListener('click', function() {
+            const newQuestionText = document.getElementById('newQuestionInput').value.trim();
+            if (newQuestionText) {
+                const newQuestionId = 'q' + (questions.length > 0 ? Math.max(...questions.map(q => parseInt(q.id.substring(1)))) + 1 : 1);
+                questions.push({ id: newQuestionId, text: newQuestionText });
+                saveData();
+                loadAdminQuestions(); // Reload admin questions list
+                loadUserQuestions(); // Reload user questions to reflect changes
+                document.getElementById('newQuestionInput').value = ''; // Clear input field
+            }
+        });
+
+        // Edit question functionality (toggles input field)
+        function editQuestion(id) {
+            document.getElementById(`questionText-${id}`).classList.add('hidden');
+            document.getElementById(`editInput-${id}`).classList.remove('hidden');
+            document.getElementById(`editBtn-${id}`).classList.add('hidden');
+            document.getElementById(`saveBtn-${id}`).classList.remove('hidden');
+            document.getElementById(`editInput-${id}`).focus(); // Focus on the input field
+        }
+
+        // Save edited question functionality
+        function saveEditedQuestion(id) {
+            const newText = document.getElementById(`editInput-${id}`).value.trim();
+            if (newText) {
+                const questionIndex = questions.findIndex(q => q.id === id);
+                if (questionIndex !== -1) {
+                    questions[questionIndex].text = newText;
+                    saveData();
+                    loadAdminQuestions(); // Reload admin questions list
+                    loadUserQuestions(); // Reload user questions to reflect changes
+                }
+            } else {
+                // If empty, revert to original text or show error
+                const originalText = questions.find(q => q.id === id)?.text || '';
+                document.getElementById(`editInput-${id}`).value = originalText;
+                document.getElementById(`questionText-${id}`).classList.remove('hidden');
+                document.getElementById(`editInput-${id}`).classList.add('hidden');
+                document.getElementById(`editBtn-${id}`).classList.remove('hidden');
+                document.getElementById(`saveBtn-${id}`).classList.add('hidden');
+            }
+        }
+
+        // Delete question functionality
+        function deleteQuestion(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus pertanyaan ini?')) {
+                questions = questions.filter(question => question.id !== id);
+                // Also remove answers related to this question from existing ratings
+                ratings.forEach(rating => {
+                    if (rating.answers && rating.answers[id] !== undefined) {
+                        delete rating.answers[id];
+                    }
+                });
+                saveData();
+                loadAdminQuestions(); // Reload admin questions list
+                loadUserQuestions(); // Reload user questions to reflect changes
+            }
+        }
+
+        // Populate month and year dropdowns for report generation
+        function populateReportFilters() {
+            const reportMonth = document.getElementById('reportMonth');
+            const reportYear = document.getElementById('reportYear');
+            const currentYear = new Date().getFullYear();
+
+            // Clear previous options
+            reportMonth.innerHTML = '';
+            reportYear.innerHTML = '';
+
+            const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+            // Populate months
+            for (let i = 1; i <= 12; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = monthNames[i];
+                reportMonth.appendChild(option);
+            }
+
+            // Populate years (e.g., current year and past 5 years)
+            for (let i = currentYear; i >= currentYear - 5; i--) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                reportYear.appendChild(option);
+            }
+
+            // Set default to current month and year
+            reportMonth.value = new Date().getMonth() + 1;
+            reportYear.value = currentYear;
+        }
+
+        // Generate report functionality
+        document.getElementById('generateReportBtn').addEventListener('click', generateReport);
+
+        function generateReport() {
+            const month = parseInt(document.getElementById('reportMonth').value);
+            const year = parseInt(document.getElementById('reportYear').value);
+
+            const filteredRatings = ratings.filter(rating =>
+                rating.month === month && rating.year === year
+            );
+
+            if (filteredRatings.length === 0) {
+                document.getElementById('reportContent').innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <p>Tidak ada data untuk bulan dan tahun yang dipilih</p>
+                    </div>
+                `;
+                document.getElementById('exportButtons').classList.add('hidden');
+                currentReport = null; // Clear current report if no data
+                return;
+            }
+
+            const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                             'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+            // Calculate statistics
+            const totalResponses = filteredRatings.length;
+            const satisfiedCount = filteredRatings.filter(r => r.emotion === 1).length;
+            const unsatisfiedCount = filteredRatings.filter(r => r.emotion === 0).length;
+
+            // Question statistics
+            const questionStats = {};
+            questions.forEach(question => {
+                const yesCount = filteredRatings.filter(r => r.answers && r.answers[question.id] === 1).length;
+                const noCount = filteredRatings.filter(r => r.answers && r.answers[question.id] === 0).length;
+                const totalAnswers = yesCount + noCount; // Total answers for this specific question
+
+                questionStats[question.id] = {
+                    question: question.text,
+                    yesCount,
+                    noCount,
+                    yesPercentage: totalAnswers > 0 ? ((yesCount / totalAnswers) * 100).toFixed(1) : 0,
+                    noPercentage: totalAnswers > 0 ? ((noCount / totalAnswers) * 100).toFixed(1) : 0
+                };
+            });
+
+            // Store current report data
+            currentReport = {
+                month: monthNames[month],
+                year,
+                totalResponses,
+                satisfiedCount,
+                unsatisfiedCount,
+                questionStats,
+                allFeedback: filteredRatings.filter(r => r.feedback && r.feedback.trim()) // Store all feedback
+            };
+
+            currentPage = 1; // Reset to first page when generating a new report
+            renderReportContent(); // Call a new function to render content, including pagination
+        }
+
+        // Function to render the report content, including paginated feedback
+        function renderReportContent() {
+            if (!currentReport) return;
+
+            const { month, year, totalResponses, satisfiedCount, unsatisfiedCount, questionStats, allFeedback } = currentReport;
+
+            // Calculate feedback for the current page
+            const startIdx = (currentPage - 1) * itemsPerPage;
+            const endIdx = startIdx + itemsPerPage;
+            const paginatedFeedback = allFeedback.slice(startIdx, endIdx);
+            const totalPages = Math.ceil(allFeedback.length / itemsPerPage);
+
+            let reportHTML = `
+                <div class="bg-blue-50 p-6 rounded-lg mb-6 shadow-md">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2">Laporan Kepuasan ${month} ${year}</h3>
+                    <p class="text-gray-600">Ringkasan hasil penilaian kepuasan kantin</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-blue-100 p-6 rounded-lg text-center shadow-md">
+                        <h4 class="text-lg font-semibold text-blue-800">Total Responden</h4>
+                        <p class="text-4xl font-bold text-blue-600 mt-2">${totalResponses}</p>
+                    </div>
+                    <div class="bg-green-100 p-6 rounded-lg text-center shadow-md">
+                        <h4 class="text-lg font-semibold text-green-800">Puas 😊</h4>
+                        <p class="text-4xl font-bold text-green-600 mt-2">${satisfiedCount}</p>
+                        <p class="text-sm text-green-700 mt-1">${totalResponses > 0 ? ((satisfiedCount/totalResponses)*100).toFixed(1) : 0}%</p>
+                    </div>
+                    <div class="bg-red-100 p-6 rounded-lg text-center shadow-md">
+                        <h4 class="text-lg font-semibold text-red-800">Tidak Puas 😞</h4>
+                        <p class="text-4xl font-bold text-red-600 mt-2">${unsatisfiedCount}</p>
+                        <p class="text-sm text-red-700 mt-1">${totalResponses > 0 ? ((unsatisfiedCount/totalResponses)*100).toFixed(1) : 0}%</p>
+                    </div>
+                </div>
+
+                <div class="mb-8 bg-white p-6 rounded-xl shadow-md">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">Statistik Pertanyaan</h4>
+                    <div class="space-y-4">
+            `;
+
+            Object.values(questionStats).forEach(stat => {
+                reportHTML += `
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p class="font-medium text-gray-700 mb-2">${stat.question}</p>
+                        <div class="flex items-center space-x-4 text-sm">
+                            <div class="flex items-center">
+                                <span class="text-green-600 mr-1">✅</span>
+                                <span class="text-gray-700">Ya:</span>
+                                <span class="font-semibold ml-1">${stat.yesCount} (${stat.yesPercentage}%)</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-red-600 mr-1">❌</span>
+                                <span class="text-gray-700">Tidak:</span>
+                                <span class="font-semibold ml-1">${stat.noCount} (${stat.noPercentage}%)</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-green-500 h-2.5 rounded-full" style="width: ${stat.yesPercentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            reportHTML += `
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">Kritik dan Saran (${allFeedback.length} Total Feedback)</h4>
+                    <div class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar p-2">
+            `;
+
+            if (paginatedFeedback.length === 0) {
+                reportHTML += `
+                    <div class="text-center py-4 text-gray-500">
+                        <p>Tidak ada kritik dan saran untuk ditampilkan pada halaman ini.</p>
+                    </div>
+                `;
+            } else {
+                paginatedFeedback.forEach(rating => {
+                    reportHTML += `
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div class="flex items-center mb-2">
+                                <span class="text-2xl mr-2">${rating.emotion === 1 ? '😊' : '😞'}</span>
+                                <span class="text-sm text-gray-500">${rating.date}</span>
+                            </div>
+                            <p class="text-gray-700">${rating.feedback}</p>
+                        </div>
+                    `;
+                });
+            }
+
+            reportHTML += `
+                    </div>
+                    <div class="flex justify-center items-center mt-6 space-x-4">
+                        <button onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''} class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform transition-transform duration-200 hover:scale-105">Sebelumnya</button>
+                        <span class="text-gray-700">Halaman ${currentPage} dari ${totalPages}</span>
+                        <button onclick="changePage(1)" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform transition-transform duration-200 hover:scale-105">Selanjutnya</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('reportContent').innerHTML = reportHTML;
+            document.getElementById('exportButtons').classList.remove('hidden');
+        }
+
+        // Function to change the current page of feedback in the report
+        function changePage(direction) {
+            if (!currentReport) return;
+            const totalPages = Math.ceil(currentReport.allFeedback.length / itemsPerPage);
+            currentPage += direction;
+
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            renderReportContent();
+        }
+
+
+        // --- Export Functions ---
+
+        // Export report to PDF
+        function exportToPDF() {
+            if (!currentReport) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let yPos = 20;
+
+            // Title
+            doc.setFontSize(22);
+            doc.text(`Laporan Kepuasan Kantin`, 105, yPos, null, null, 'center');
+            yPos += 10;
+            doc.setFontSize(16);
+            doc.text(`${currentReport.month} ${currentReport.year}`, 105, yPos, null, null, 'center');
+            yPos += 20;
+
+            // Summary
+            doc.setFontSize(14);
+            doc.text('Ringkasan:', 20, yPos);
+            yPos += 10;
+            doc.setFontSize(12);
+            doc.text(`Total Responden: ${currentReport.totalResponses}`, 20, yPos);
+            yPos += 7;
+            doc.text(`Puas: ${currentReport.satisfiedCount} (${currentReport.totalResponses > 0 ? ((currentReport.satisfiedCount/currentReport.totalResponses)*100).toFixed(1) : 0}%)`, 20, yPos);
+            yPos += 7;
+            doc.text(`Tidak Puas: ${currentReport.unsatisfiedCount} (${currentReport.totalResponses > 0 ? ((currentReport.unsatisfiedCount/currentReport.totalResponses)*100).toFixed(1) : 0}%)`, 20, yPos);
+            yPos += 15;
+
+            // Question Statistics
+            doc.setFontSize(14);
+            doc.text('Statistik Pertanyaan:', 20, yPos);
+            yPos += 10;
+            doc.setFontSize(10);
+            Object.values(currentReport.questionStats).forEach(stat => {
+                if (yPos > 270) { // Check for page break
+                    doc.addPage();
+                    yPos = 20;
+                }
+                doc.text(`- ${stat.question}`, 20, yPos);
+                yPos += 5;
+                doc.text(`  Ya: ${stat.yesCount} (${stat.yesPercentage}%) | Tidak: ${stat.noCount} (${stat.noPercentage}%)`, 25, yPos);
+                yPos += 10;
+            });
+            yPos += 5;
+
+            // Feedback
+            doc.setFontSize(14);
+            doc.text('Kritik dan Saran:', 20, yPos);
+            yPos += 10;
+
+            currentReport.allFeedback.forEach(rating => { // Use allFeedback for export
+                if (yPos > 270) { // Check for page break
+                    doc.addPage();
+                    yPos = 20;
+                }
+                doc.setFontSize(10);
+                doc.text(`${rating.date} (${rating.emotion === 1 ? 'Puas' : 'Tidak Puas'}): ${rating.feedback}`, 20, yPos, { maxWidth: 170 });
+                yPos += 10; // Adjust line height as needed
+            });
+
+            doc.save(`Laporan_Kepuasan_${currentReport.month}_${currentReport.year}.pdf`);
+        }
+
+        // Export report to Excel
+        function exportToExcel() {
+            if (!currentReport) return;
+
+            const wb = XLSX.utils.book_new();
+
+            // Summary Sheet
+            const summaryData = [
+                [`Laporan Kepuasan Kantin ${currentReport.month} ${currentReport.year}`],
+                [],
+                ['Total Responden', currentReport.totalResponses],
+                ['Puas', currentReport.satisfiedCount, `${currentReport.totalResponses > 0 ? ((currentReport.satisfiedCount/currentReport.totalResponses)*100).toFixed(1) : 0}%`],
+                ['Tidak Puas', currentReport.unsatisfiedCount, `${currentReport.totalResponses > 0 ? ((currentReport.unsatisfiedCount/currentReport.totalResponses)*100).toFixed(1) : 0}%`],
+                [],
+                ['Statistik Pertanyaan']
+            ];
+
+            Object.values(currentReport.questionStats).forEach(stat => {
+                summaryData.push([
+                    stat.question,
+                    `Ya: ${stat.yesCount} (${stat.yesPercentage}%)`,
+                    `Tidak: ${stat.noCount} (${stat.noPercentage}%)`
+                ]);
+            });
+
+            const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, ws1, 'Ringkasan');
+
+            // Feedback Sheet
+            const feedbackData = [
+                ['Kritik dan Saran'],
+                ['Tanggal', 'Kepuasan', 'Feedback']
+            ];
+
+            currentReport.allFeedback.forEach(rating => { // Use allFeedback for export
+                feedbackData.push([rating.date, rating.emotion === 1 ? 'Puas' : 'Tidak Puas', rating.feedback]);
+            });
+
+            const ws2 = XLSX.utils.aoa_to_sheet(feedbackData);
+            XLSX.utils.book_append_sheet(wb, ws2, 'Kritik dan Saran');
+
+            XLSX.writeFile(wb, `Laporan_Kepuasan_${currentReport.month}_${currentReport.year}.xlsx`);
+        }
+
+        // Add admin access link (hidden, activated by Ctrl+Shift+A)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+                showLoginPage();
+            }
+        });
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData(); // Load data from localStorage on app start
+            setupEmoticonHandlers(); // Attach emoticon event listeners
+            showUserPage(); // Display the user page by default
+        });
+    </script>
+</body>
+</html>
